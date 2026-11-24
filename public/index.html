@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1c2023"><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg">
+<title>Bayline</title>
+<style>
+:root{--bg:#e7e9e6;--panel:#f6f7f5;--ink:#1c2023;--mute:#5b6469;--line:#c9cdca;--paint:#f0b90b;--free:#1f9d62;--res:#2457ff;--bad:#d64545;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#15181a;--panel:#1e2225;--ink:#eceeed;--mute:#9aa3a8;--line:#343a3e;--paint:#f5c431;--free:#35c783;--res:#6b8cff;color-scheme:dark}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+h1,h2{font-family:"Arial Narrow","Barlow Condensed",sans-serif;margin:0;line-height:1.05}
+.wrap{max-width:980px;margin:0 auto;padding:0 16px 40px}
+header{display:flex;justify-content:space-between;align-items:center;padding:14px 0}
+h1{font-size:30px}
+button,input,select{font:inherit;color:inherit}
+.btn{background:var(--ink);color:var(--bg);border:0;border-radius:6px;padding:10px 16px;font-weight:600;cursor:pointer}
+.alt{background:transparent;color:var(--ink);border:1.5px solid var(--ink)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px}
+input,select{padding:10px 12px;border:1px solid var(--line);border-radius:6px;background:var(--bg);width:100%}
+label{display:grid;gap:4px;font-weight:600;font-size:14px}
+.stack{display:grid;gap:12px}.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.tab{text-align:left;background:var(--panel);border:1.5px solid var(--line);border-radius:8px;padding:10px;cursor:pointer;display:grid}
+.tab[aria-pressed=true]{border-color:var(--paint);box-shadow:inset 0 0 0 1px var(--paint)}
+.tab b{font-size:17px}.tab small{color:var(--mute)}
+.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:5px}
+.bay{aspect-ratio:3/4;border:2px solid var(--line);border-radius:3px;background:var(--line);padding:0;font-size:10px;color:var(--mute)}
+.bay.free{border-color:var(--free);background:color-mix(in srgb,var(--free) 22%,transparent);cursor:pointer;color:var(--ink)}
+.bay.reserved{border-color:var(--res);background:color-mix(in srgb,var(--res) 30%,transparent)}
+.bay.busy{background:#4a5258;border-color:#4a5258}
+.bay.sel{outline:3px solid var(--paint);outline-offset:1px}
+.meta{display:flex;gap:14px;flex-wrap:wrap;color:var(--mute);font-size:14px;margin:8px 0}
+.msg{min-height:22px;font-weight:600}.err{color:var(--bad)}.ok{color:var(--free)}
+.bk{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line);padding:10px 0;font-size:15px}
+.bk:last-child{border:0}[hidden]{display:none!important}
+:focus-visible{outline:3px solid var(--res);outline-offset:2px}
+@media(max-width:640px){.grid{gap:3px}.tab b{font-size:15px}.row2{grid-template-columns:1fr}}
+</style></head><body><div class="wrap">
+<header><h1>Bayline</h1><div><span id="who"></span> <button class="btn alt" id="out" hidden>Sign out</button></div></header>
+
+<div class="card" id="auth">
+<div class="stack" style="max-width:380px"><h2>Sign in to reserve</h2>
+<label id="nm" hidden>Name<input id="name" autocomplete="name"></label>
+<label>Email<input id="email" type="email" autocomplete="email"></label>
+<label>Password<input id="pw" type="password" autocomplete="current-password"></label>
+<div class="row2"><button class="btn" id="go">Sign in</button><button class="btn alt" id="sw">New account</button></div>
+<div class="msg err" id="aerr"></div></div></div>
+
+<div class="tabs" id="tabs"></div>
+<div class="card"><div class="meta"><span id="free"></span><span id="gps">Location off</span><span id="gpu"></span><button class="btn alt" id="loc" style="padding:4px 10px">Use my location</button></div>
+<div class="grid" id="grid"></div>
+<div class="meta"><span>Green: free. Tap one to select.</span><span>Blue: reserved</span><span>Grey: occupied</span></div></div>
+
+<div class="card" id="book" hidden><h2>Reserve</h2><div class="stack" style="margin-top:10px">
+<div id="pick">Select a free bay above.</div>
+<div class="row2"><label>Plate<input id="plate" maxlength="10" placeholder="ABC 1234" autocomplete="off"></label>
+<label>Time<select id="hrs"><option value="1">1 hour</option><option value="2">2 hours</option><option value="4">4 hours</option><option value="8">All day (8 hours)</option></select></label></div>
+<label>Pay with<select id="method"><option value="card">Credit or debit card</option><option value="instapay">InstaPay</option></select></label>
+<div class="stack" id="pc"><label>Card number<input id="cn" inputmode="numeric" autocomplete="cc-number" maxlength="23" placeholder="4242 4242 4242 4242"></label>
+<div class="row2"><label>Expiry<input id="ce" inputmode="numeric" maxlength="5" placeholder="MM/YY" autocomplete="cc-exp"></label><label>Security code<input id="cv" inputmode="numeric" maxlength="4" autocomplete="cc-csc"></label></div></div>
+<label id="pi" hidden>InstaPay address or mobile<input id="ipa" placeholder="name@instapay or 01XXXXXXXXX" autocomplete="off"></label>
+<div><b id="total" style="font-size:24px"></b></div>
+<button class="btn" id="pay">Pay and reserve</button><div class="msg" id="msg" role="status"></div></div></div>
+
+<div class="card" id="mine" hidden><h2>My bookings</h2><div id="bks" style="margin-top:8px"></div></div>
+</div>
+<script>
+const API='api/index.php',$=s=>document.querySelector(s);
+let me=null,lots=[],cur=null,bays=[],sel=null,pos=null,stats={},reg=false;
+async function api(r,body,q=''){const o={credentials:'same-origin',headers:{'X-Requested-With':'fetch'}};
+ if(body){o.method='POST';o.headers['Content-Type']='application/json';o.body=JSON.stringify(body)}
+ const res=await fetch(API+'?r='+r+q,o);const j=await res.json().catch(()=>({error:'Server error. Is PHP running?'}));
+ if(!res.ok)throw new Error(j.error||'Request failed');return j}
+const km=(a,b,c,d)=>{const r=x=>x*Math.PI/180,h=Math.sin(r(c-a)/2)**2+Math.cos(r(a))*Math.cos(r(c))*Math.sin(r(d-b)/2)**2;return 12742*Math.asin(Math.sqrt(h))};
+const dist=l=>pos?km(pos.lat,pos.lng,l.lat,l.lng):null;
+function setUser(u){me=u;$('#auth').hidden=!!u;$('#out').hidden=!u;$('#book').hidden=!u;$('#mine').hidden=!u;$('#who').textContent=u?u.name:'';if(u)loadBookings()}
+async function loadLots(){lots=await api('lots');if(!cur)cur=lots[0].id;
+ const t=$('#tabs');t.innerHTML='';
+ const near=pos?lots.reduce((a,b)=>dist(a)<dist(b)?a:b).id:null;
+ lots.forEach(l=>{const b=document.createElement('button');b.className='tab';b.setAttribute('aria-pressed',l.id===cur);
+  const d=dist(l);b.innerHTML='<b></b><span></span><small></small>';
+  b.children[0].textContent=l.name;b.children[1].textContent=l.free+' free of '+l.total;
+  b.children[2].textContent=l.rate+' EGP per hour'+(d!=null?', '+d.toFixed(1)+' km'+(l.id===near?', nearest':''):'');
+  b.onclick=()=>{cur=l.id;sel=null;refresh()};t.appendChild(b)});}
+async function loadBays(){bays=await api('bays',null,'&lot='+cur);stats=Object.fromEntries((await api('stats')).map(s=>[s.lot_id,s]));
+ const g=$('#grid');g.innerHTML='';
+ bays.forEach(b=>{const e=document.createElement('button');e.className='bay '+b.status+(sel===b.num?' sel':'');e.textContent=b.num;
+  e.setAttribute('aria-label','Bay '+b.num+', '+b.status);e.disabled=b.status!=='free';
+  e.onclick=()=>{sel=b.num;pickUi();loadBays()};g.appendChild(e)});
+ const l=lots.find(x=>x.id===cur),s=stats[cur];$('#free').textContent=l.free+' free now';
+ $('#gpu').textContent=s?'GPU: '+Math.round(s.fps)+' fps, '+(+s.latency_ms).toFixed(1)+' ms':'GPU: no data yet';pickUi()}
+function pickUi(){const l=lots.find(x=>x.id===cur);if(!l)return;
+ $('#pick').textContent=sel?l.name+', bay '+sel:'Select a free bay above.';
+ $('#total').textContent=(l.rate*$('#hrs').value)+' EGP'}
+async function refresh(){try{await loadLots();await loadBays()}catch(e){$('#free').textContent=e.message}}
+async function loadBookings(){try{const a=await api('bookings');const d=$('#bks');d.innerHTML='';
+ if(!a.length){d.textContent='No bookings yet.';return}
+ a.forEach(k=>{const r=document.createElement('div');r.className='bk';const s=document.createElement('span');
+  s.textContent=k.lot+', bay '+k.bay_num+', '+k.plate+', '+k.amount+' EGP ('+k.status+')';r.appendChild(s);
+  if(k.status==='active'){const c=document.createElement('button');c.className='btn alt';c.textContent='Cancel';c.onclick=async()=>{await api('cancel',{id:k.id});refresh();loadBookings()};r.appendChild(c)}
+  d.appendChild(r)})}catch(e){}}
+const luhn=s=>{let t=0,a=false;for(let i=s.length-1;i>=0;i--){let n=+s[i];if(a){n*=2;if(n>9)n-=9}t+=n;a=!a}return t%10===0};
+$('#cn').oninput=e=>e.target.value=e.target.value.replace(/\D/g,'').slice(0,19).replace(/(.{4})/g,'$1 ').trim();
+$('#ce').oninput=e=>{let v=e.target.value.replace(/\D/g,'').slice(0,4);if(v.length>2)v=v.slice(0,2)+'/'+v.slice(2);e.target.value=v};
+$('#hrs').onchange=pickUi;
+$('#method').onchange=()=>{const c=$('#method').value==='card';$('#pc').hidden=!c;$('#pi').hidden=c};
+$('#pay').onclick=async()=>{const m=$('#msg');m.className='msg err';
+ try{if(!sel)throw Error('Select a free bay first.');
+  const body={lot_id:cur,bay:sel,plate:$('#plate').value,hours:+$('#hrs').value,method:$('#method').value};
+  if(body.method==='card'){const n=$('#cn').value.replace(/\s/g,''),x=$('#ce').value.match(/^(\d\d)\/(\d\d)$/),d=new Date();
+   if(n.length<13||!luhn(n))throw Error('Check the card number.');
+   if(!x||+x[1]<1||+x[1]>12||+x[2]<d.getFullYear()%100||(+x[2]==d.getFullYear()%100&&+x[1]<d.getMonth()+1))throw Error('Check the expiry date.');
+   if(!/^\d{3,4}$/.test($('#cv').value))throw Error('Check the security code.');
+   body.last4=n.slice(-4);}else body.ipa=$('#ipa').value.trim();
+  const r=await api('reserve',body);$('#cn').value=$('#cv').value='';sel=null;
+  m.className='msg ok';m.textContent='Reserved '+r.lot+', bay '+r.bay+'. Paid '+r.amount+' EGP (demo payment).';refresh();loadBookings()
+ }catch(e){m.textContent=e.message;refresh()}};
+$('#sw').onclick=()=>{reg=!reg;$('#nm').hidden=!reg;$('#go').textContent=reg?'Create account':'Sign in';$('#sw').textContent=reg?'I have an account':'New account'};
+$('#go').onclick=async()=>{try{const u=await api(reg?'register':'login',{name:$('#name').value,email:$('#email').value,password:$('#pw').value});$('#pw').value='';$('#aerr').textContent='';setUser(u.user)}catch(e){$('#aerr').textContent=e.message}};
+$('#out').onclick=async()=>{await api('logout',{});setUser(null)};
+$('#loc').onclick=()=>{if(!navigator.geolocation){$('#gps').textContent='No location support';return}
+ $('#gps').textContent='Finding you...';
+ navigator.geolocation.watchPosition(p=>{pos={lat:p.coords.latitude,lng:p.coords.longitude};const l=lots.find(x=>x.id===cur);$('#gps').textContent=l?dist(l).toFixed(1)+' km from '+l.name:'Located';loadLots()},
+  e=>{$('#gps').textContent=e.code===1?'Location blocked in browser settings':'Could not find you'},{enableHighAccuracy:true,maximumAge:8000,timeout:15000})};
+if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+(async()=>{try{setUser((await api('me')).user)}catch(e){}await refresh();setInterval(refresh,3500)})();
+</script></body></html>
